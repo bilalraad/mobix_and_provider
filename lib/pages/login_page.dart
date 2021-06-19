@@ -77,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget buildInitialInput() {
     return Center(
-      child: CityInputField(),
+      child: LoginInputFeilds(),
     );
   }
 
@@ -95,12 +95,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class CityInputField extends StatefulWidget {
+class LoginInputFeilds extends StatefulWidget {
   @override
-  _CityInputFieldState createState() => _CityInputFieldState();
+  _LoginInputFeildsState createState() => _LoginInputFeildsState();
 }
 
-class _CityInputFieldState extends State<CityInputField> {
+class _LoginInputFeildsState extends State<LoginInputFeilds> {
   GlobalKey<FormFieldState> _formKey = GlobalKey();
 
   late TextEditingController userNameController;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/model/daily_work.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import '../data/model/user.dart';
 import '../state/daily_work_store.dart';
 import '../state/user_store.dart';
@@ -17,17 +17,17 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  DailyWorkStore? _dailyWorkStore;
+  late DailyWorkStore _dailyWorkStore;
   late List<ReactionDisposer> _disposers;
 
   @override
-  void didChangeDependencies() {
+  Future<void> didChangeDependencies() async {
     super.didChangeDependencies();
-    _dailyWorkStore ??= Provider.of<DailyWorkStore>(context);
-    _dailyWorkStore!.getData(10);
+    _dailyWorkStore = Provider.of<DailyWorkStore>(context);
+    await _dailyWorkStore.getData(10);
     _disposers = [
       reaction<String>(
-        (_) => _dailyWorkStore!.errorMessage!,
+        (_) => _dailyWorkStore.errorMessage!,
         (String message) {
           print(message);
           showTopSnackBar(
@@ -50,14 +50,15 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    switch (_dailyWorkStore!.state) {
-      case StoreState.initial:
-        return buildInitialInput();
-      case StoreState.loading:
-        return buildLoading();
-      case StoreState.loaded:
-        return buildColumnWithData(_dailyWorkStore!.dailywork!, widget.user);
-    }
+    return Observer(
+      builder: (context) {
+        return _dailyWorkStore.state == StoreState.initial
+            ? buildLoading()
+            : _dailyWorkStore.state == StoreState.loaded
+                ? buildColumnWithData(widget.user)
+                : Container();
+      },
+    );
   }
 
   Widget buildInitialInput() {
@@ -67,24 +68,23 @@ class _HomePageState extends State<HomePage> {
   Widget buildLoading() {
     return CircularProgressIndicator();
   }
-}
 
-Widget buildColumnWithData(List<DailyWork> dialyWork, User user) {
-  return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: <Widget>[
-        Text(
-          user.name,
-          style: TextStyle(
-            fontSize: 40,
-            fontWeight: FontWeight.w700,
+  Widget buildColumnWithData(User user) {
+    return Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: <Widget>[
+          Text(
+            user.name,
+            style: TextStyle(
+              fontSize: 40,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        Text(
-          // Display the temperature with 1 decimal place
-          user.depatment,
-          style: TextStyle(fontSize: 80),
-        ),
-        Text(dialyWork.first.toString())
-      ]);
+          Text(
+            user.depatment,
+            style: TextStyle(fontSize: 80),
+          ),
+          Text(_dailyWorkStore.dailywork!.first.toString())
+        ]);
+  }
 }
