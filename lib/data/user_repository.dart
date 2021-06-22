@@ -1,14 +1,17 @@
-import 'dart:io';
+import 'dart:convert';
 import 'dart:math';
 
-import 'package:dio/adapter.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/model/logIn.dart';
 import '../data/model/user.dart';
 import '../shared/config/connection.dart';
 
 abstract class UserRepository {
   Future<User> login(Login credentials);
+  void logout();
+  Future<User> getCurrentUser();
+  void setCurrentUser(jsonString);
 }
 
 class ApiUserRepository implements UserRepository {
@@ -18,16 +21,6 @@ class ApiUserRepository implements UserRepository {
 
     Dio _dio = Dio();
 
-// This should be used while in development mode,
-// remove this when you want to release to production,
-// the aim of this fix is to make the development a bit easier,
-// for production, you need to fix your certificate issue and use it properly,
-    (_dio.httpClientAdapter as DefaultHttpClientAdapter).onHttpClientCreate =
-        (HttpClient client) {
-      client.badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-      return client;
-    };
     Response response;
     try {
       response = await _dio.postUri(uri,
@@ -37,10 +30,7 @@ class ApiUserRepository implements UserRepository {
         case 200:
           log(response.data);
           User _user = User.fromJson(response.data);
-          print(_user.name);
-
-          //TODO: save token to the local database
-
+          _user.auth = true;
           return _user;
         case 404:
           throw ('User not found');
@@ -50,44 +40,81 @@ class ApiUserRepository implements UserRepository {
           throw ("An unexpected error occurred, please try again later");
       }
     } on DioError {
-      print('dio error');
       throw ("An unexpected error occurred, please try again later");
     } catch (e) {
-      print(e.toString());
       throw ("An unexpected error occurred, please try again later");
     }
   }
+
+  @override
+  Future<User> getCurrentUser() {
+    throw UnimplementedError();
+  }
+
+  @override
+  void setCurrentUser(jsonString) {}
+
+  @override
+  void logout() {}
 }
 
 class FakeUserRepository implements UserRepository {
-  late String name;
-  late String dep;
-
   @override
   Future<User> login(Login credentials) {
     // Simulate network delay
-    print('object');
     return Future.delayed(
       Duration(seconds: 1),
       () {
         final random = Random();
         // Simulate some network error
-        // if (random.nextBool()) {
-        //   throw NetworkError();
-        // }
-        name = 'bilal';
-        dep = 'mobile';
-        if (credentials.username != 'task' &&
+        if (random.nextBool()) {
+          throw NetworkError();
+        }
+
+        if (credentials.username != 'task' ||
             credentials.password != 'task1234') {
           throw CredentialError();
         }
+        final response = json.encode({
+          "data": {
+            "name": "Bilal",
+            "department": "mobile",
+            "apiToken": "MySecretToken",
+          }
+        });
+        setCurrentUser(response);
 
-        return User(
-          name: name,
-          depatment: dep,
-        );
+        final user = User.fromMap(json.decode(response)["data"]);
+        user.auth = true;
+
+        return user;
       },
     );
+  }
+
+  Future<User> getCurrentUser() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    var user = User.initial();
+    if (prefs.containsKey('current_user')) {
+      user = User.fromJson(prefs.get('current_user').toString());
+    }
+    return user;
+  }
+
+  void setCurrentUser(jsonString) async {
+    if (json.decode(jsonString)['data'] != null) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          'current_user', json.encode(json.decode(jsonString)['data']));
+    }
+  }
+
+  @override
+  Future<void> logout() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey('current_user')) {
+      prefs.remove('current_user');
+    }
   }
 }
 

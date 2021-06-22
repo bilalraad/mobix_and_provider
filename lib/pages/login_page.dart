@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
-import '../data/daily_work_repository.dart';
+
+import '../locator.dart';
 import '../data/model/logIn.dart';
-import '../data/model/user.dart';
-import '../pages/home_page.dart';
-import '../state/daily_work_store.dart';
 import '../state/user_store.dart';
-import 'package:mobx/mobx.dart';
-import 'package:provider/provider.dart';
-import 'package:top_snackbar_flutter/custom_snack_bar.dart';
-import 'package:top_snackbar_flutter/top_snack_bar.dart';
+import './Widgets/custom_text_feild.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -17,81 +11,18 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  UserStore? _userStore;
-  late List<ReactionDisposer> _disposers;
-  GlobalKey<ScaffoldMessengerState> _scaffoldKey = GlobalKey();
-
-  @override
-  void didChangeDependencies() {
-    print('didChangeDependencies');
-    super.didChangeDependencies();
-    _userStore ??= Provider.of<UserStore>(context);
-    _disposers = [
-      reaction<String>(
-        (_) => _userStore!.errorMessage!,
-        (String message) {
-          print(message);
-          showTopSnackBar(
-            context,
-            CustomSnackBar.error(
-              backgroundColor: Colors.red,
-              message: message,
-            ),
-          );
-        },
-      ),
-    ];
-  }
-
-  @override
-  void dispose() {
-    _disposers.forEach((d) => d());
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
       appBar: AppBar(
         title: Text("login"),
       ),
       body: Container(
         padding: EdgeInsets.symmetric(vertical: 16),
         alignment: Alignment.center,
-        child: Observer(
-          builder: (_) {
-            switch (_userStore!.state) {
-              case StoreState.initial:
-                return buildInitialInput();
-              case StoreState.loading:
-                return buildLoading();
-              case StoreState.loaded:
-                return buildColumnWithData(_userStore!.user!);
-            }
-          },
-        ),
+        child: LoginInputFeilds(),
       ),
     );
-  }
-
-  Widget buildInitialInput() {
-    return Center(
-      child: LoginInputFeilds(),
-    );
-  }
-
-  Widget buildLoading() {
-    return Center(
-      child: CircularProgressIndicator(),
-    );
-  }
-
-  Widget buildColumnWithData(User user) {
-    print(user.name);
-    return Provider(
-        create: (_) => DailyWorkStore(FakeDailyWorkRepository()),
-        child: HomePage(user: user));
   }
 }
 
@@ -101,13 +32,15 @@ class LoginInputFeilds extends StatefulWidget {
 }
 
 class _LoginInputFeildsState extends State<LoginInputFeilds> {
-  GlobalKey<FormFieldState> _formKey = GlobalKey();
+  late GlobalKey<FormState> _formKey;
 
   late TextEditingController userNameController;
   late TextEditingController passwordController;
+  bool showPass = false;
 
   @override
   void initState() {
+    _formKey = GlobalKey();
     userNameController = TextEditingController();
     passwordController = TextEditingController();
     super.initState();
@@ -128,41 +61,55 @@ class _LoginInputFeildsState extends State<LoginInputFeilds> {
         key: _formKey,
         child: Column(
           children: [
-            TextFormField(
+            CustomTextFeild(
               controller: userNameController,
-              decoration: InputDecoration(
-                hintText: "User Name",
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                suffixIcon: Icon(Icons.person),
-              ),
+              hintText: "User Name",
+              prefixIcon: Icon(Icons.person),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'please enter a value';
+                } else if (value.length <= 3) {
+                  return 'your username is too short';
+                }
+                return null;
+              },
             ),
-            TextFormField(
-              textInputAction: TextInputAction.send,
+            CustomTextFeild(
               controller: passwordController,
-              decoration: InputDecoration(
-                hintText: "Password",
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                suffixIcon: Icon(Icons.password),
+              hintText: 'Password',
+              prefixIcon: Icon(Icons.password),
+              obscureText: showPass,
+              suffixWidget: InkWell(
+                onTap: () => setState(() => showPass = !showPass),
+                child: showPass
+                    ? Icon(Icons.visibility_off)
+                    : Icon(Icons.visibility),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'please enter a Password';
+                } else if (value.length <= 5) {
+                  return 'your password is too short';
+                }
+                return null;
+              },
             ),
             ElevatedButton(
                 onPressed: () => submit(
-                    context,
-                    Login(
-                      username: userNameController.text,
-                      password: passwordController.text,
-                    )),
-                child: Text("hello"))
+                      Login(
+                        username: userNameController.text,
+                        password: passwordController.text,
+                      ),
+                    ),
+                child: Text("Login"))
           ],
         ),
       ),
     );
   }
 
-  void submit(BuildContext context, Login credentials) {
-    final weatherStore = Provider.of<UserStore>(context, listen: false);
-    weatherStore.login(credentials);
+  void submit(Login credentials) {
+    final userStore = getIt.get<UserStore>();
+    if (_formKey.currentState!.validate()) userStore.login(credentials);
   }
 }

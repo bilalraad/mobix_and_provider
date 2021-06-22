@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:dio/adapter.dart';
 import 'package:dio/dio.dart';
 import '../data/user_repository.dart';
 import '../shared/config/connection.dart';
@@ -9,10 +8,10 @@ import '../shared/config/connection.dart';
 import 'model/daily_work.dart';
 
 abstract class DailyWorkRepository {
-  Future<List<DailyWork>> getData(int take);
+  Future<List<DailyWork>> getData(int page);
 }
 
-List<DailyWork> dailyWork = [];
+List<DailyWork> _dailyWork = [];
 
 final work = DailyWork(
   agentName: 'علي محمد',
@@ -20,6 +19,30 @@ final work = DailyWork(
   phoneNumber: '078XXXXXXXX',
   workType: 'صفحة ويب',
 );
+
+class FakeDailyWorkRepository implements DailyWorkRepository {
+  @override
+  Future<List<DailyWork>> getData(int page) {
+    // Simulate network delay
+    return Future.delayed(
+      Duration(seconds: 1),
+      () {
+        //ideally this will return different items for each new page
+        //basically each page have ten items so each request will return 10 and
+        //the pagination controller will append them to the previous pages
+        for (int i = 0; i <= 10; i++) _dailyWork.add(work);
+
+        final random = Random();
+        // Simulate some network error
+        if (random.nextBool()) {
+          throw NetworkError();
+        }
+
+        return _dailyWork;
+      },
+    );
+  }
+}
 
 class ApiDailyWorkRepository implements DailyWorkRepository {
   @override
@@ -32,23 +55,13 @@ class ApiDailyWorkRepository implements DailyWorkRepository {
       HttpHeaders.contentTypeHeader: "application/json",
     }));
 
-// This should be used while in development mode,
-// remove this when you want to release to production,
-// the aim of this fix is to make the development a bit easier,
-// for production, you need to fix your certificate issue and use it properly,
-    (_dio.httpClientAdapter as DefaultHttpClientAdapter).onHttpClientCreate =
-        (HttpClient client) {
-      client.badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-      return client;
-    };
-    _dio.interceptors.add(CustomInterceptors());
     _dio.interceptors.add(LogInterceptor(
-        error: true,
-        request: true,
-        requestBody: true,
-        responseBody: true,
-        responseHeader: true));
+      error: true,
+      request: true,
+      requestBody: true,
+      responseBody: true,
+      responseHeader: true,
+    ));
     Response response;
     try {
       response = await _dio.postUri(
@@ -57,10 +70,7 @@ class ApiDailyWorkRepository implements DailyWorkRepository {
       );
       switch (response.statusCode) {
         case 200:
-          log(response.data);
-          print(response.statusMessage);
-
-          return dailyWork;
+          return _dailyWork;
         case 404:
           throw ('User not found');
         case 500:
@@ -69,59 +79,9 @@ class ApiDailyWorkRepository implements DailyWorkRepository {
           throw ("An unexpected error occurred, please try again later");
       }
     } on DioError {
-      print('dio error');
       throw ("An unexpected error occurred, please try again later");
     } catch (e) {
-      print(e.toString());
       throw ("An unexpected error occurred, please try again later");
     }
-  }
-}
-
-class FakeDailyWorkRepository implements DailyWorkRepository {
-  late String name;
-  late String dep;
-
-  @override
-  Future<List<DailyWork>> getData(int take) {
-    for (int i = 0; i <= take; i++) {
-      dailyWork.add(work);
-    }
-    print('object');
-    // Simulate network delay
-    return Future.delayed(
-      Duration(seconds: 1),
-      () {
-        final random = Random();
-        // Simulate some network error
-        if (random.nextBool()) {
-          throw NetworkError();
-        }
-
-        return dailyWork;
-      },
-    );
-  }
-}
-
-class CustomInterceptors extends Interceptor {
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    print('REQUEST[${options.method}] => PATH: ${options.path}');
-    return super.onRequest(options, handler);
-  }
-
-  @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
-    print(
-        'RESPONSE[${response.statusCode}] =>Path:${response.requestOptions.path} data: ${response.data}');
-    return super.onResponse(response, handler);
-  }
-
-  @override
-  void onError(DioError err, ErrorInterceptorHandler handler) {
-    print(
-        'ERROR[${err.response?.statusCode}] => PATH: ${err.requestOptions.path} Message: ${err.response?.statusMessage} ${err.message}');
-    return super.onError(err, handler);
   }
 }

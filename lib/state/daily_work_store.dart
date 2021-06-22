@@ -1,7 +1,7 @@
 import '../data/daily_work_repository.dart';
 import '../data/model/daily_work.dart';
+import '../shared/store_state.dart';
 import '../data/user_repository.dart';
-import '../state/user_store.dart';
 import 'package:mobx/mobx.dart';
 
 part 'daily_work_store.g.dart';
@@ -18,16 +18,17 @@ abstract class _DailyWorkStore with Store {
 
   @observable
   ObservableFuture<List<DailyWork>>? _dataFuture;
+
   @observable
   List<DailyWork>? dailywork;
 
-  @observable
-  String? errorMessage;
-
   @computed
   StoreState get state {
-    if (_dataFuture == null || _dataFuture!.status == FutureStatus.rejected) {
+    if (_dataFuture == null) {
       return StoreState.initial;
+    }
+    if (_dataFuture!.status == FutureStatus.rejected) {
+      return StoreState.error;
     }
     return _dataFuture!.status == FutureStatus.pending
         ? StoreState.loading
@@ -35,17 +36,15 @@ abstract class _DailyWorkStore with Store {
   }
 
   @action
-  Future<void> getData(int take) async {
+  Future<void> getData([int page = 1]) async {
     try {
-      errorMessage = null;
-      _dataFuture = ObservableFuture(_dailyWorkRepository.getData(take));
+      //ideally this will return different items for each new page
+      _dataFuture = ObservableFuture(_dailyWorkRepository.getData(page));
       dailywork = await _dataFuture!;
     } on NetworkError {
-      print('NetworkError');
-      errorMessage = "Couldn't login. Is the device online?";
-    } on CredentialError {
-      print('CredentialError');
-      errorMessage = "Couldn't login. make sure the your data is correct";
+      throw "Couldn't load the data. Is the device online?";
+    } catch (e) {
+      throw "Unknown error happend please try agan later";
     }
   }
 }

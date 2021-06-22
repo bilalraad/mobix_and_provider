@@ -68,6 +68,20 @@ mixin _$UserStore on _UserStore, Store {
     return _$loginAsyncAction.run(() => super.login(credentials));
   }
 
+  final _$getCurrentUserAsyncAction = AsyncAction('_UserStore.getCurrentUser');
+
+  @override
+  Future<dynamic> getCurrentUser() {
+    return _$getCurrentUserAsyncAction.run(() => super.getCurrentUser());
+  }
+
+  final _$logoutAsyncAction = AsyncAction('_UserStore.logout');
+
+  @override
+  Future<dynamic> logout() {
+    return _$logoutAsyncAction.run(() => super.logout());
+  }
+
   @override
   String toString() {
     return '''

@@ -47,33 +47,17 @@ mixin _$DailyWorkStore on _DailyWorkStore, Store {
     });
   }
 
-  final _$errorMessageAtom = Atom(name: '_DailyWorkStore.errorMessage');
-
-  @override
-  String? get errorMessage {
-    _$errorMessageAtom.reportRead();
-    return super.errorMessage;
-  }
-
-  @override
-  set errorMessage(String? value) {
-    _$errorMessageAtom.reportWrite(value, super.errorMessage, () {
-      super.errorMessage = value;
-    });
-  }
-
   final _$getDataAsyncAction = AsyncAction('_DailyWorkStore.getData');
 
   @override
-  Future<void> getData(int take) {
-    return _$getDataAsyncAction.run(() => super.getData(take));
+  Future<void> getData([int page = 1]) {
+    return _$getDataAsyncAction.run(() => super.getData(page));
   }
 
   @override
   String toString() {
     return '''
 dailywork: ${dailywork},
-errorMessage: ${errorMessage},
 state: ${state}
     ''';
   }
